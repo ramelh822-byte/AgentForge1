@@ -1,0 +1,22 @@
+{
+  "name": "agentforge1",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@9.15.0",
+  "workspaces": [
+    "artifacts/*",
+    "lib/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter @workspace/api-server run dev\" \"pnpm --filter @workspace/mockup-sandbox run dev\"",
+    "build": "pnpm -r --filter \"./artifacts/*\" --filter \"./lib/*\" run build",
+    "typecheck": "tsc -b",
+    "lint": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.9",
+    "concurrently": "^9.1.2",
+    "prettier": "^3.9.10",
+    "typescript": "~5.9.3"
+  }
+}
