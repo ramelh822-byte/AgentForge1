@@ -1,20 +1,25 @@
 import { useEffect, useState } from 'react';
 
-const plans = [
-  { id: 'starter', name: 'Starter', price: '$29/mo', description: 'AI ops for a single team.' },
-  { id: 'growth', name: 'Growth', price: '$99/mo', description: 'Scale automations across multiple workflows.' },
-];
+type Decision = {
+  id: string;
+  title: string;
+  type: string;
+  urgency: string;
+  reason: string;
+};
 
-type Opportunity = {
+type Asset = {
   id: string;
   name: string;
   niche: string;
-  revenue: number;
-  traffic: number;
-  score: {
-    total: number;
-    recommendation: string;
+  assetType: string;
+  traction: {
+    traffic: number;
+    revenue: number;
+    conversionRate: number;
   };
+  status: string;
+  nextAction: string;
 };
 
 type PortfolioState = {
@@ -25,8 +30,25 @@ type PortfolioState = {
     opportunities: number;
     highPriority: number;
   };
-  opportunities: Opportunity[];
+  opportunities: Array<{
+    id: string;
+    name: string;
+    niche: string;
+    revenue: number;
+    traffic: number;
+    score: {
+      total: number;
+      recommendation: string;
+    };
+  }>;
+  assets: Asset[];
+  decisions: Decision[];
 };
+
+const plans = [
+  { id: 'starter', name: 'Starter', price: '$29/mo', description: 'AI ops for a single team.' },
+  { id: 'growth', name: 'Growth', price: '$99/mo', description: 'Scale automations across multiple workflows.' },
+];
 
 export default function App() {
   const [email, setEmail] = useState('ops@example.com');
@@ -50,9 +72,7 @@ export default function App() {
       const apiBase = import.meta.env.VITE_API_BASE ?? 'http://localhost:5000';
       const response = await fetch(`${apiBase}/api/checkout`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId, customerEmail: email }),
       });
 
@@ -81,7 +101,7 @@ export default function App() {
         <p className="eyebrow">AgentForge1</p>
         <h1>Autonomous business factory for digitally scaled revenue</h1>
         <p className="subtext">
-          Discover opportunities, build assets, generate traffic, monetize results, and scale winning businesses while retiring weak ones.
+          Discover opportunities, build assets, generate traffic, monetize results, and scale winners while retiring weak businesses.
         </p>
 
         <div className="card">
@@ -162,6 +182,71 @@ export default function App() {
                 </div>
               </div>
             </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="asset-board">
+        <div className="section-title-row">
+          <h2>Asset board</h2>
+          <span>Portfolio health</span>
+        </div>
+
+        <div className="asset-grid">
+          {(portfolio?.assets ?? []).map((asset) => (
+            <article key={asset.id} className="asset-card">
+              <div className="asset-head">
+                <div>
+                  <p className="small-label">{asset.assetType}</p>
+                  <h3>{asset.name}</h3>
+                </div>
+                <span className={`asset-status ${asset.status}`}>{asset.status}</span>
+              </div>
+
+              <div className="asset-meta">
+                <div>
+                  <span>Niche</span>
+                  <strong>{asset.niche}</strong>
+                </div>
+                <div>
+                  <span>Revenue</span>
+                  <strong>${asset.traction.revenue.toLocaleString()}</strong>
+                </div>
+                <div>
+                  <span>Traffic</span>
+                  <strong>{asset.traction.traffic.toLocaleString()}</strong>
+                </div>
+                <div>
+                  <span>Conversion</span>
+                  <strong>{asset.traction.conversionRate}%</strong>
+                </div>
+              </div>
+
+              <div className="asset-action-row">
+                <span>Next action</span>
+                <strong>{asset.nextAction}</strong>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="decision-board">
+        <div className="section-title-row">
+          <h2>Capital decisions</h2>
+          <span>Action queue</span>
+        </div>
+
+        <div className="decision-list">
+          {(portfolio?.decisions ?? []).map((decision) => (
+            <div key={decision.id} className="decision-item">
+              <div className={`decision-pill ${decision.type}`}>{decision.type}</div>
+              <div>
+                <h3>{decision.title}</h3>
+                <p>{decision.reason}</p>
+              </div>
+              <span className={`urgency ${decision.urgency}`}>{decision.urgency}</span>
+            </div>
           ))}
         </div>
       </section>
