@@ -13,12 +13,13 @@ export type OpportunityResult = {
 };
 
 export type AssetStatus = 'active' | 'testing' | 'scaling' | 'paused' | 'archived';
+export type AssetType = 'website' | 'newsletter' | 'saas' | 'affiliate' | 'content' | 'marketplace';
 
 export type BusinessAsset = {
   id: string;
   name: string;
   niche: string;
-  assetType: 'website' | 'newsletter' | 'saas' | 'affiliate' | 'content' | 'marketplace';
+  assetType: AssetType;
   traction: {
     traffic: number;
     revenue: number;
@@ -33,6 +34,18 @@ export type BusinessAsset = {
   };
   status: AssetStatus;
   nextAction: 'scale' | 'pause' | 'kill' | 'expand' | 'iterate';
+};
+
+export type DecisionType = 'growth' | 'kill' | 'experiment' | 'allocate';
+
+export type Decision = {
+  id: string;
+  title: string;
+  type: DecisionType;
+  urgency: 'high' | 'medium' | 'low';
+  asset?: string;
+  reason: string;
+  expectedImpact?: string;
 };
 
 export const scoreOpportunity = ({
@@ -184,54 +197,117 @@ export function buildPortfolioSummary() {
   const activeAssets = mockAssets.filter((asset) => asset.status !== 'archived').length;
   const highPriority = opportunities.filter((item) => item.score.total >= 80).length;
 
-  const assetHealth = {
-    totalRevenue,
-    totalTraffic,
-    activeAssets,
-    opportunities: opportunities.length,
-    highPriority,
-  };
-
-  const decisions = [
+  const decisions: Decision[] = [
     {
       id: 'decision-01',
       title: 'Scale Music CreatorOS',
       type: 'growth',
       urgency: 'high',
+      asset: 'Music CreatorOS',
       reason: 'High demand, strong monetization, and strong automation leverage.',
+      expectedImpact: '+$2.9k MRR / month',
     },
     {
       id: 'decision-02',
       title: 'Archive Site #19',
       type: 'kill',
       urgency: 'high',
+      asset: 'Site #19',
       reason: 'Revenue under threshold and declining conversion rate for 180+ days.',
+      expectedImpact: 'Free 6+ hrs/week for better tests',
     },
     {
       id: 'decision-03',
       title: 'Expand creator lead-gen experiments',
       type: 'experiment',
       urgency: 'medium',
+      asset: 'Creator Revenue Agent',
       reason: 'Creator growth assets show stable traffic and high conversion potential.',
+      expectedImpact: '+14% test-to-launch efficiency',
+    },
+    {
+      id: 'decision-04',
+      title: 'Allocate capital to AI music licensing',
+      type: 'allocate',
+      urgency: 'medium',
+      asset: 'AI Music Licensing',
+      reason: 'This opportunity has the strongest score and the most defensible growth profile.',
+      expectedImpact: '7-9 month compounding upside',
     },
   ];
 
+  const capitalPlan = [
+    {
+      id: 'cap-01',
+      target: 'Music CreatorOS',
+      allocation: 4200,
+      priority: 'Primary',
+      reason: 'Strongest combined revenue and automation profile.',
+      expectedRoi: '3.1x projected 12-month ROI',
+    },
+    {
+      id: 'cap-02',
+      target: 'Creator Growth OS',
+      allocation: 2600,
+      priority: 'Secondary',
+      reason: 'High opportunity score with good monetization runway.',
+      expectedRoi: '2.8x projected 12-month ROI',
+    },
+    {
+      id: 'cap-03',
+      target: 'AI Podcast Workflow',
+      allocation: 1500,
+      priority: 'Test',
+      reason: 'Promising but still needs sharper validation before expansion.',
+      expectedRoi: '1.8x projected 12-month ROI',
+    },
+  ];
+
+  const lifecycleSummary = {
+    active: mockAssets.filter((asset) => asset.status === 'active').length,
+    testing: mockAssets.filter((asset) => asset.status === 'testing').length,
+    scaling: mockAssets.filter((asset) => asset.status === 'scaling').length,
+    paused: mockAssets.filter((asset) => asset.status === 'paused').length,
+  };
+
   return {
-    summary: assetHealth,
+    summary: {
+      totalRevenue,
+      totalTraffic,
+      activeAssets,
+      opportunities: opportunities.length,
+      highPriority,
+    },
     opportunities,
     assets: mockAssets,
     decisions,
+    capitalPlan,
+    lifecycleSummary,
   };
 }
 
 export function buildRecommendations() {
-  const portfolio = buildPortfolioSummary();
-
-  return portfolio.opportunities
+  return buildPortfolioSummary().opportunities
     .map((opportunity) => ({
       ...opportunity,
       recommendation: opportunity.score.recommendation,
       confidence: Math.max(50, Math.min(97, opportunity.score.total)),
     }))
     .sort((a, b) => b.score.total - a.score.total);
+}
+
+export function getLifecycleGovernance() {
+  const assets = mockAssets.map((asset) => ({
+    ...asset,
+    governance: asset.status === 'paused' ? 'kill-review' : asset.status === 'scaling' ? 'scale' : 'monitor',
+  }));
+
+  return {
+    assets,
+    rules: [
+      'If asset age > 180 days and revenue < $100/month, archive it.',
+      'If opportunity score > 80 and monetization > 0.8, prioritize scale.',
+      'If conversion rate drops below 1% for 30 days, enter pause review.',
+    ],
+  };
 }

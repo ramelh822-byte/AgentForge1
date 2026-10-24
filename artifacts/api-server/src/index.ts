@@ -3,7 +3,7 @@ import cors from 'cors';
 import Stripe from 'stripe';
 import { config } from './config.js';
 import { checkoutRequestSchema } from '@workspace/api-zod';
-import { buildPortfolioSummary, buildRecommendations } from './opportunity-engine.js';
+import { buildPortfolioSummary, buildRecommendations, getLifecycleGovernance } from './opportunity-engine.js';
 
 const app = express();
 const stripe = new Stripe(config.stripeSecretKey, {
@@ -27,10 +27,12 @@ const plans = [
   },
 ];
 
-app.use(cors({
-  origin: config.clientUrl,
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: config.clientUrl,
+    credentials: true,
+  })
+);
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'agentforge-api', timestamp: new Date().toISOString() });
@@ -52,12 +54,20 @@ app.get('/api/assets', (_req, res) => {
   res.json(buildPortfolioSummary().assets);
 });
 
-app.get('/api/recommendations', (_req, res) => {
-  res.json(buildRecommendations());
-});
-
 app.get('/api/decisions', (_req, res) => {
   res.json(buildPortfolioSummary().decisions);
+});
+
+app.get('/api/capital-plan', (_req, res) => {
+  res.json(buildPortfolioSummary().capitalPlan);
+});
+
+app.get('/api/lifecycle-governance', (_req, res) => {
+  res.json(getLifecycleGovernance());
+});
+
+app.get('/api/recommendations', (_req, res) => {
+  res.json(buildRecommendations());
 });
 
 app.post('/api/checkout', express.json(), async (req, res) => {

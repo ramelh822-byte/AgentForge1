@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
 
-type Decision = {
+type Opportunity = {
   id: string;
-  title: string;
-  type: string;
-  urgency: string;
-  reason: string;
+  name: string;
+  niche: string;
+  revenue: number;
+  traffic: number;
+  score: {
+    total: number;
+    recommendation: string;
+  };
 };
 
 type Asset = {
@@ -22,6 +26,24 @@ type Asset = {
   nextAction: string;
 };
 
+type Decision = {
+  id: string;
+  title: string;
+  type: string;
+  urgency: string;
+  reason: string;
+  expectedImpact?: string;
+};
+
+type CapitalPlanItem = {
+  id: string;
+  target: string;
+  allocation: number;
+  priority: string;
+  reason: string;
+  expectedRoi: string;
+};
+
 type PortfolioState = {
   summary: {
     totalRevenue: number;
@@ -30,19 +52,16 @@ type PortfolioState = {
     opportunities: number;
     highPriority: number;
   };
-  opportunities: Array<{
-    id: string;
-    name: string;
-    niche: string;
-    revenue: number;
-    traffic: number;
-    score: {
-      total: number;
-      recommendation: string;
-    };
-  }>;
+  opportunities: Opportunity[];
   assets: Asset[];
   decisions: Decision[];
+  capitalPlan: CapitalPlanItem[];
+  lifecycleSummary: {
+    active: number;
+    testing: number;
+    scaling: number;
+    paused: number;
+  };
 };
 
 const plans = [
@@ -95,13 +114,15 @@ export default function App() {
     }
   };
 
+  const totalCapital = (portfolio?.capitalPlan ?? []).reduce((sum, item) => sum + item.allocation, 0);
+
   return (
     <main className="shell">
       <section className="hero">
         <p className="eyebrow">AgentForge1</p>
         <h1>Autonomous business factory for digitally scaled revenue</h1>
         <p className="subtext">
-          Discover opportunities, build assets, generate traffic, monetize results, and scale winners while retiring weak businesses.
+          Discover opportunities, build assets, generate traffic, monetize outcomes, and scale winners while retiring weak businesses.
         </p>
 
         <div className="card">
@@ -244,10 +265,60 @@ export default function App() {
               <div>
                 <h3>{decision.title}</h3>
                 <p>{decision.reason}</p>
+                {decision.expectedImpact ? <small>{decision.expectedImpact}</small> : null}
               </div>
               <span className={`urgency ${decision.urgency}`}>{decision.urgency}</span>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="capital-plan">
+        <div className="section-title-row">
+          <h2>Capital allocation</h2>
+          <span>${totalCapital.toLocaleString()} total</span>
+        </div>
+
+        <div className="capital-grid">
+          {(portfolio?.capitalPlan ?? []).map((item) => (
+            <article key={item.id} className="capital-card">
+              <div className="capital-head">
+                <div>
+                  <p className="small-label">{item.priority}</p>
+                  <h3>{item.target}</h3>
+                </div>
+                <strong>${item.allocation.toLocaleString()}</strong>
+              </div>
+              <p>{item.reason}</p>
+              <span>{item.expectedRoi}</span>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="lifecycle-board">
+        <div className="section-title-row">
+          <h2>Lifecycle governance</h2>
+          <span>Portfolio rules</span>
+        </div>
+
+        <div className="lifecycle-grid">
+          <div className="lifecycle-box">
+            <span>Active</span>
+            <strong>{portfolio?.lifecycleSummary.active ?? 0}</strong>
+          </div>
+          <div className="lifecycle-box">
+            <span>Testing</span>
+            <strong>{portfolio?.lifecycleSummary.testing ?? 0}</strong>
+          </div>
+          <div className="lifecycle-box">
+            <span>Scaling</span>
+            <strong>{portfolio?.lifecycleSummary.scaling ?? 0}</strong>
+          </div>
+          <div className="lifecycle-box">
+            <span>Paused</span>
+            <strong>{portfolio?.lifecycleSummary.paused ?? 0}</strong>
+          </div>
         </div>
       </section>
 
