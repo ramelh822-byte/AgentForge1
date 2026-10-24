@@ -1,31 +1,227 @@
 import express from 'express';
 import cors from 'cors';
-import Stripe from 'stripe';
+import crypto from 'node:crypto';
+import { eq } from 'drizzle-orm';
+import { db, customers, payments, plans, workflowRuns } from '@workspace/db';
 import { config } from './config.js';
 import { checkoutRequestSchema } from '@workspace/api-zod';
 import { buildPortfolioSummary, buildRecommendations, getLifecycleGovernance } from './opportunity-engine.js';
 
-const app = express();
-const stripe = new Stripe(config.stripeSecretKey, {
-  apiVersion: '2024-06-20',
-});
+type PaddleCheckoutResponse = {
+  data?: {
+    checkout?: {
+      url?: string;
+    };
+    url?: string;
+  };
+};
 
-const plans = [
+type PaddleWebhookEvent = {
+  type: string;
+  data?: {
+    id?: string;
+    status?: string;
+    customer?: {
+      email?: string;
+    };
+    custom_data?: Record<string, unknown>;
+  };
+};
+
+const app = express();
+
+const plansCatalog = [
   {
     id: 'starter',
     name: 'Starter',
     price: '$29/mo',
-    description: 'For new operators who need AI workflow automation and Stripe billing.',
-    stripePriceId: 'price_123',
+    description: 'For new operators who need AI workflow automation and hosted checkout billing.',
+    providerPlanId: 'starter-plan',
   },
   {
     id: 'growth',
     name: 'Growth',
     price: '$99/mo',
     description: 'For teams scaling ops with deeper automation and orchestration.',
-    stripePriceId: 'price_456',
+    providerPlanId: 'growth-plan',
   },
-];
+] as const;
+
+async function ensurePlanCatalog() {
+  for (const plan of plansCatalog) {
+    await db
+      .insert(plans)
+      .values({
+        slug: plan.id,
+        name: plan.name,
+        priceLabel: plan.price,
+        stripePriceId: plan.providerPlanId,
+      })
+      .onConflictDoNothing()
+      .execute();
+  }
+}
+
+async function upsertCustomerFromEmail(email: string) {
+  const normalized = email.trim().toLowerCase();
+
+  const existing = await db.query.customers.findFirst({
+    where: eq(customers.email, normalized),
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  const inserted = await db
+    .insert(customers)
+    .values({
+      email: normalized,
+      stripeCustomerId: null,
+    })
+    .returning();
+
+  return inserted[0];
+}
+
+async function findPlanBySlug(slug: string) {
+  return db.query.plans.findFirst({
+    where: eq(plans.slug, slug),
+  });
+}
+
+async function createPaddleCheckout({
+  planId,
+  customerEmail,
+  productName,
+}: {
+  planId: string;
+  customerEmail?: string;
+  productName: string;
+}) {
+  const apiBase = config.paddleEnv === 'sandbox' ? 'https://sandbox-api.paddle.com' : 'https://api.paddle.com';
+  const planConfig = plansCatalog.find((plan) => plan.id === planId);
+
+  if (!planConfig) {
+    throw new Error('Unsupported plan');
+  }
+
+  const response = await fetch(`${apiBase}/transactions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.paddleApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      items: [
+        {
+          price: {
+            id: planConfig.providerPlanId,
+          },
+          quantity: 1,
+        },
+      ],
+      customer: customerEmail
+        ? {
+            email: customerEmail,
+          }
+        : undefined,
+      custom_data: {
+        planId,
+        source: 'agentforge',
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Paddle checkout creation failed: ${text}`);
+  }
+
+  const body = (await response.json()) as PaddleCheckoutResponse;
+  const checkoutUrl = body.data?.checkout?.url ?? body.data?.url;
+
+  if (!checkoutUrl) {
+    throw new Error('Paddle did not return a checkout URL');
+  }
+
+  return checkoutUrl;
+}
+
+function verifyPaddleWebhook(rawBody: Buffer | string, signature: string, secret: string): PaddleWebhookEvent {
+  const raw = typeof rawBody === 'string' ? rawBody : rawBody.toString('utf8');
+  const received = signature.replace(/^sha256=/, '');
+  const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex');
+
+  const receivedBuffer = Buffer.from(received, 'hex');
+  const expectedBuffer = Buffer.from(expected, 'hex');
+
+  if (receivedBuffer.length !== expectedBuffer.length) {
+    throw new Error('Invalid Paddle webhook signature length');
+  }
+
+  if (!crypto.timingSafeEqual(receivedBuffer, expectedBuffer)) {
+    throw new Error('Invalid Paddle webhook signature');
+  }
+
+  return JSON.parse(raw) as PaddleWebhookEvent;
+}
+
+async function handleSuccessfulPaddlePayment(event: PaddleWebhookEvent) {
+  const planId = String(event.data?.custom_data?.planId ?? 'starter');
+  const email = String(event.data?.customer?.email ?? '').trim().toLowerCase();
+
+  if (!email) {
+    throw new Error('Customer email missing from Paddle webhook payload');
+  }
+
+  const customer = await upsertCustomerFromEmail(email);
+  const plan = await findPlanBySlug(planId);
+
+  if (!plan) {
+    throw new Error(`Plan not found for slug: ${planId}`);
+  }
+
+  await db
+    .insert(payments)
+    .values({
+      customerId: customer.id,
+      planId: plan.id,
+      stripeSessionId: `paddle:${event.data?.id ?? 'unknown'}`,
+      stripeInvoiceId: null,
+      status: 'paid',
+      metadata: {
+        provider: 'paddle',
+        eventType: event.type,
+        customerEmail: email,
+        planId,
+        externalTransactionId: event.data?.id ?? null,
+      },
+      paidAt: new Date(),
+      createdAt: new Date(),
+    })
+    .execute();
+
+  await db
+    .insert(workflowRuns)
+    .values({
+      name: 'paddle-payment-processed',
+      status: 'succeeded',
+      payload: {
+        provider: 'paddle',
+        eventType: event.type,
+        customerEmail: email,
+        planId,
+        transactionId: event.data?.id ?? null,
+      },
+      result: {
+        success: true,
+        message: 'Paddle payment processed successfully',
+      },
+      isActive: false,
+    })
+    .execute();
+}
 
 app.use(
   cors({
@@ -39,7 +235,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.get('/api/plans', (_req, res) => {
-  res.json(plans);
+  res.json(plansCatalog);
 });
 
 app.get('/api/portfolio', (_req, res) => {
@@ -78,67 +274,62 @@ app.post('/api/checkout', express.json(), async (req, res) => {
   }
 
   const { planId, customerEmail } = parsed.data;
-  const selectedPlan = plans.find((plan) => plan.id === planId);
+  const selectedPlan = plansCatalog.find((plan) => plan.id === planId);
 
   if (!selectedPlan) {
     return res.status(404).json({ error: 'Plan not found' });
   }
 
-  if (!config.stripeSecretKey || config.stripeSecretKey.startsWith('sk_test_your_key_here')) {
+  if (!config.paddleApiKey) {
     return res.status(400).json({
-      error: 'Stripe is not configured. Add your real STRIPE_SECRET_KEY before creating checkout sessions.',
+      error: 'Paddle is not configured. Add your PADDLE_API_KEY before creating checkout sessions.',
     });
   }
 
   try {
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      customer_email: customerEmail,
-      line_items: [{ price: selectedPlan.stripePriceId, quantity: 1 }],
-      success_url: `${config.clientUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${config.clientUrl}/cancelled`,
-      metadata: {
-        planId: selectedPlan.id,
-        source: 'agentforge',
-      },
+    await ensurePlanCatalog();
+
+    const checkoutUrl = await createPaddleCheckout({
+      planId: selectedPlan.id,
+      customerEmail,
+      productName: selectedPlan.name,
     });
 
-    res.json({ url: session.url, sessionId: session.id });
+    return res.json({ url: checkoutUrl, sessionId: `paddle:${selectedPlan.id}` });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to create Stripe session';
-    res.status(500).json({ error: message });
+    const message = error instanceof Error ? error.message : 'Unable to create checkout session';
+    return res.status(500).json({ error: message });
   }
 });
 
-app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const signature = req.headers['stripe-signature'];
+app.post('/api/paddle/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const signature = req.headers['paddle-signature'];
 
   if (!signature || typeof signature !== 'string') {
-    return res.status(400).json({ error: 'Missing Stripe signature' });
+    return res.status(400).json({ error: 'Missing Paddle signature' });
   }
 
   try {
-    const event = stripe.webhooks.constructEvent(req.body, signature, config.stripeWebhookSecret);
+    const event = verifyPaddleWebhook(req.body, signature, config.paddleWebhookSecret);
 
     switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object;
-        console.log('Checkout session completed', session.id, session.metadata?.planId ?? 'unknown-plan');
+      case 'transaction.completed':
+        await handleSuccessfulPaddlePayment(event);
         break;
-      }
-      case 'invoice.paid': {
-        const invoice = event.data.object;
-        console.log('Invoice paid', invoice.id, invoice.amount_paid);
+      case 'subscription.created':
+        console.log('Paddle subscription created');
         break;
-      }
+      case 'subscription.cancelled':
+        console.log('Paddle subscription cancelled');
+        break;
       default:
-        console.log('Unhandled Stripe event', event.type);
+        console.log('Unhandled Paddle event', event.type);
     }
 
-    res.json({ received: true });
+    return res.json({ received: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Invalid webhook payload';
-    res.status(400).json({ error: message });
+    return res.status(400).json({ error: message });
   }
 });
 
