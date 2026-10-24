@@ -1,14 +1,46 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const plans = [
   { id: 'starter', name: 'Starter', price: '$29/mo', description: 'AI ops for a single team.' },
   { id: 'growth', name: 'Growth', price: '$99/mo', description: 'Scale automations across multiple workflows.' },
 ];
 
+type Opportunity = {
+  id: string;
+  name: string;
+  niche: string;
+  revenue: number;
+  traffic: number;
+  score: {
+    total: number;
+    recommendation: string;
+  };
+};
+
+type PortfolioState = {
+  summary: {
+    totalRevenue: number;
+    totalTraffic: number;
+    activeAssets: number;
+    opportunities: number;
+    highPriority: number;
+  };
+  opportunities: Opportunity[];
+};
+
 export default function App() {
   const [email, setEmail] = useState('ops@example.com');
   const [status, setStatus] = useState('Ready to launch');
   const [loading, setLoading] = useState(false);
+  const [portfolio, setPortfolio] = useState<PortfolioState | null>(null);
+
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_BASE ?? 'http://localhost:5000';
+    fetch(`${apiBase}/api/portfolio`)
+      .then((res) => res.json())
+      .then((data) => setPortfolio(data))
+      .catch(() => setStatus('Unable to fetch portfolio snapshot'));
+  }, []);
 
   const handleCheckout = async (planId: string) => {
     setLoading(true);
@@ -47,9 +79,9 @@ export default function App() {
     <main className="shell">
       <section className="hero">
         <p className="eyebrow">AgentForge1</p>
-        <h1>Autonomous billing and workflow ops connected to Stripe</h1>
+        <h1>Autonomous business factory for digitally scaled revenue</h1>
         <p className="subtext">
-          Launch a Stripe-backed customer journey and manage autonomous operations from a single dashboard.
+          Discover opportunities, build assets, generate traffic, monetize results, and scale winning businesses while retiring weak ones.
         </p>
 
         <div className="card">
@@ -64,6 +96,25 @@ export default function App() {
         </div>
       </section>
 
+      <section className="metrics">
+        <div className="metric">
+          <span>Total Revenue</span>
+          <strong>${portfolio?.summary.totalRevenue.toLocaleString() ?? '0'}</strong>
+        </div>
+        <div className="metric">
+          <span>Active Assets</span>
+          <strong>{portfolio?.summary.activeAssets ?? 0}</strong>
+        </div>
+        <div className="metric">
+          <span>Tracked Traffic</span>
+          <strong>{portfolio?.summary.totalTraffic.toLocaleString() ?? '0'}</strong>
+        </div>
+        <div className="metric">
+          <span>High Priority</span>
+          <strong>{portfolio?.summary.highPriority ?? 0}</strong>
+        </div>
+      </section>
+
       <section className="plans">
         {plans.map((plan) => (
           <article key={plan.id} className="plan">
@@ -75,6 +126,44 @@ export default function App() {
             </button>
           </article>
         ))}
+      </section>
+
+      <section className="opportunities">
+        <div className="section-title-row">
+          <h2>Opportunity pipeline</h2>
+          <span>{portfolio?.opportunities.length ?? 0} active</span>
+        </div>
+
+        <div className="opportunity-grid">
+          {(portfolio?.opportunities ?? []).map((opportunity) => (
+            <article key={opportunity.id} className="opportunity-card">
+              <div className="opportunity-head">
+                <div>
+                  <p className="small-label">{opportunity.niche}</p>
+                  <h3>{opportunity.name}</h3>
+                </div>
+                <span className={`tag ${opportunity.score.recommendation}`}>
+                  {opportunity.score.recommendation}
+                </span>
+              </div>
+
+              <div className="mini-stats">
+                <div>
+                  <span>Revenue</span>
+                  <strong>${opportunity.revenue.toLocaleString()}</strong>
+                </div>
+                <div>
+                  <span>Traffic</span>
+                  <strong>{opportunity.traffic.toLocaleString()}</strong>
+                </div>
+                <div>
+                  <span>Score</span>
+                  <strong>{opportunity.score.total}</strong>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
       <p className="status">Status: {status}</p>

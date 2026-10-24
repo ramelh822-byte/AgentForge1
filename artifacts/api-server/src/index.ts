@@ -3,6 +3,7 @@ import cors from 'cors';
 import Stripe from 'stripe';
 import { config } from './config.js';
 import { checkoutRequestSchema } from '@workspace/api-zod';
+import { buildPortfolioSummary } from './opportunity-engine.js';
 
 const app = express();
 const stripe = new Stripe(config.stripeSecretKey, {
@@ -15,15 +16,15 @@ const plans = [
     name: 'Starter',
     price: '$29/mo',
     description: 'For new operators who need AI workflow automation and Stripe billing.',
-    stripePriceId: 'price_123' // replace with a real Stripe Price ID once configured
+    stripePriceId: 'price_123',
   },
   {
     id: 'growth',
     name: 'Growth',
     price: '$99/mo',
     description: 'For teams scaling ops with deeper automation and orchestration.',
-    stripePriceId: 'price_456'
-  }
+    stripePriceId: 'price_456',
+  },
 ];
 
 app.use(
@@ -39,6 +40,16 @@ app.get('/health', (_req, res) => {
 
 app.get('/api/plans', (_req, res) => {
   res.json(plans);
+});
+
+app.get('/api/portfolio', (_req, res) => {
+  const portfolio = buildPortfolioSummary();
+  res.json(portfolio);
+});
+
+app.get('/api/opportunities', (_req, res) => {
+  const portfolio = buildPortfolioSummary();
+  res.json(portfolio.opportunities);
 });
 
 app.post('/api/checkout', express.json(), async (req, res) => {

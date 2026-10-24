@@ -22,13 +22,13 @@ input {
 }
 
 .shell {
-  max-width: 1080px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 72px 24px;
+  padding: 72px 24px 96px;
 }
 
 .hero {
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .eyebrow {
@@ -64,6 +64,31 @@ h1 {
   color: white;
   border-radius: 12px;
   padding: 12px 14px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin: 24px 0 32px;
+}
+
+.metric {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 18px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric span {
+  color: #b4c2ef;
+}
+
+.metric strong {
+  font-size: 1.9rem;
 }
 
 .plans {
@@ -105,6 +130,109 @@ button {
 button[disabled] {
   opacity: 0.7;
   cursor: wait;
+}
+
+.opportunities {
+  margin-top: 48px;
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-title-row h2 {
+  margin: 0;
+}
+
+.section-title-row span {
+  color: #b6c7ff;
+}
+
+.opportunity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.opportunity-card {
+  background: rgba(8, 12, 24, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.opportunity-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.small-label {
+  margin: 0 0 6px;
+  color: #7db0ff;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.opportunity-card h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.tag {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tag.launch {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.tag.test {
+  background: rgba(251, 191, 36, 0.16);
+  color: #fcd34d;
+}
+
+.tag.watch {
+  background: rgba(96, 165, 250, 0.14);
+  color: #93c5fd;
+}
+
+.tag.avoid {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fca5a5;
+}
+
+.mini-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.mini-stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mini-stats span {
+  color: #a9b7d8;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.mini-stats strong {
+  font-size: 1.1rem;
 }
 
 .status {

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, jsonb, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, jsonb, boolean, integer } from 'drizzle-orm/pg-core';
 
 export const customers = pgTable('customers', {
   id: serial('id').primaryKey(),
@@ -35,5 +35,31 @@ export const workflowRuns = pgTable('workflow_runs', {
   payload: jsonb('payload'),
   result: jsonb('result'),
   isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const opportunitySearches = pgTable('opportunity_searches', {
+  id: serial('id').primaryKey(),
+  niche: text('niche').notNull(),
+  summary: text('summary').notNull(),
+  demandScore: integer('demand_score').notNull().default(0),
+  competitionScore: integer('competition_score').notNull().default(0),
+  monetizationScore: integer('monetization_score').notNull().default(0),
+  automationScore: integer('automation_score').notNull().default(0),
+  riskScore: integer('risk_score').notNull().default(0),
+  totalScore: integer('total_score').notNull().default(0),
+  status: text('status').notNull().default('review'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const businessAssets = pgTable('business_assets', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  niche: text('niche').notNull(),
+  assetType: text('asset_type').notNull(),
+  traffic: integer('traffic').notNull().default(0),
+  monthlyRevenue: integer('monthly_revenue').notNull().default(0),
+  automationScore: integer('automation_score').notNull().default(0),
+  status: text('status').notNull().default('active'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
