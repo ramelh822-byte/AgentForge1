@@ -148,7 +148,7 @@ export default function App() {
         </div>
         <div className="metric">
           <span>Tracked Traffic</span>
-          <strong>{portfolio?.summary.totalTraffic.toLocaleString() ?? '0'}</strong>
+          <strong>{portfolio?.summary.totalTraffic.toLocaleString() ?? 0}</strong>
         </div>
         <div className="metric">
           <span>High Priority</span>

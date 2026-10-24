@@ -6,9 +6,11 @@ export type OpportunityInput = {
   risk: number;
 };
 
+export type OpportunityRecommendation = 'launch' | 'test' | 'watch' | 'avoid';
+
 export type OpportunityResult = {
   total: number;
-  recommendation: 'launch' | 'test' | 'watch' | 'avoid';
+  recommendation: OpportunityRecommendation;
   reasons: OpportunityInput;
 };
 
@@ -64,7 +66,7 @@ export const scoreOpportunity = ({
 
   const total = Math.round(weightedScore * 100);
 
-  let recommendation: OpportunityResult['recommendation'] = 'avoid';
+  let recommendation: OpportunityRecommendation = 'avoid';
   if (total >= 80) recommendation = 'launch';
   else if (total >= 65) recommendation = 'test';
   else if (total >= 50) recommendation = 'watch';
